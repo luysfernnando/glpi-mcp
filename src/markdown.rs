@@ -150,9 +150,37 @@ pub fn field_table(fields: &[(&str, String)]) -> String {
     out
 }
 
+/// Takes ownership of a JSON array without cloning it, defaulting to empty
+/// when the value isn't an array. Use on a response we already own instead of
+/// `.as_array().cloned()`, which deep clones every item just to iterate once.
+pub fn into_array(value: Value) -> Vec<Value> {
+    match value {
+        Value::Array(items) => items,
+        _ => Vec::new(),
+    }
+}
+
 /// Reads a string field out of a JSON object, defaulting to empty.
 pub fn str_field(value: &Value, key: &str) -> String {
     value.get(key).and_then(Value::as_str).unwrap_or("").to_string()
+}
+
+/// Reads a numeric or string field out of a JSON object as a plain string,
+/// defaulting to empty. Use for GLPI IDs, which come back as numbers on plain
+/// item endpoints but as strings on `/search/*` endpoints.
+pub fn id_field(value: &Value, key: &str) -> String {
+    match value.get(key) {
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Number(n)) => n.to_string(),
+        _ => String::new(),
+    }
+}
+
+/// Strips HTML, escapes table cell characters, then truncates — the combo used
+/// for any free text field shown as a table cell (ticket/task descriptions,
+/// KB answers).
+pub fn cell(html: &str, max_chars: usize) -> String {
+    truncate(&escape_cell(&strip_html(html)), max_chars)
 }
 
 #[cfg(test)]

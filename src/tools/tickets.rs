@@ -5,17 +5,17 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::labels::{lookup, Labels};
-use crate::markdown::{escape_cell, field_table, strip_html, table, truncate};
+use crate::markdown::{cell, escape_cell, field_table, id_field, into_array, strip_html, table, truncate};
 use crate::server::GlpiServer;
 
 fn ticket_row(ticket: &Value, labels: &Labels) -> Vec<String> {
-    let id = ticket.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let id = id_field(ticket, "id");
     let name = truncate(&escape_cell(ticket.get("name").and_then(Value::as_str).unwrap_or("")), 80);
     let status = lookup(&labels.ticket_status, ticket.get("status").and_then(Value::as_i64), labels.unknown).to_string();
     let priority = lookup(&labels.ticket_priority, ticket.get("priority").and_then(Value::as_i64), labels.unknown_f).to_string();
     let ticket_type = lookup(&labels.ticket_type, ticket.get("type").and_then(Value::as_i64), labels.unknown).to_string();
     let opened = ticket.get("date").and_then(Value::as_str).unwrap_or("").to_string();
-    let snippet = truncate(&escape_cell(&strip_html(ticket.get("content").and_then(Value::as_str).unwrap_or(""))), 100);
+    let snippet = cell(ticket.get("content").and_then(Value::as_str).unwrap_or(""), 100);
     vec![id, name, status, priority, ticket_type, opened, snippet]
 }
 
@@ -32,14 +32,14 @@ fn render_ticket_list(items: &[Value], labels: &Labels) -> String {
 }
 
 fn render_ticket_detail(ticket: &Value, labels: &Labels) -> String {
-    let id = ticket.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let id = id_field(ticket, "id");
     let name = ticket.get("name").and_then(Value::as_str).unwrap_or("").to_string();
     let status = lookup(&labels.ticket_status, ticket.get("status").and_then(Value::as_i64), labels.unknown).to_string();
     let ticket_type = lookup(&labels.ticket_type, ticket.get("type").and_then(Value::as_i64), labels.unknown).to_string();
     let priority = lookup(&labels.ticket_priority, ticket.get("priority").and_then(Value::as_i64), labels.unknown_f).to_string();
     let urgency = lookup(&labels.ticket_priority, ticket.get("urgency").and_then(Value::as_i64), labels.unknown_f).to_string();
     let impact = lookup(&labels.ticket_priority, ticket.get("impact").and_then(Value::as_i64), labels.unknown).to_string();
-    let category_id = ticket.get("itilcategories_id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let category_id = id_field(ticket, "itilcategories_id");
     let opened = ticket.get("date").and_then(Value::as_str).unwrap_or("").to_string();
     let deadline = ticket.get("time_to_resolve").and_then(Value::as_str).unwrap_or("").to_string();
     let solved = ticket.get("solvedate").and_then(Value::as_str).unwrap_or("").to_string();
@@ -232,7 +232,7 @@ impl GlpiServer {
         }
 
         let result = self.client.get("/Ticket", Some(&query)).await.map_err(|e| e.to_string())?;
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         Ok(render_ticket_list(&items, &self.labels))
     }
 

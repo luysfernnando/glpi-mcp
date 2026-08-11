@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::markdown::strip_html;
+use crate::markdown::{into_array, strip_html};
 use crate::server::GlpiServer;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -34,7 +34,7 @@ impl GlpiServer {
             .get(&format!("/Ticket/{}/ITILSolution", params.ticket_id), None)
             .await
             .map_err(|e| e.to_string())?;
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         if items.is_empty() {
             return Ok("No solution recorded for this ticket.".to_string());
         }

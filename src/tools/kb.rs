@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::markdown::{escape_cell, field_table, str_field, strip_html, table, truncate};
+use crate::markdown::{escape_cell, field_table, id_field, into_array, str_field, strip_html, table, truncate};
 use crate::server::GlpiServer;
 
 fn default_range_limit() -> i64 {
@@ -90,14 +90,6 @@ pub struct UpdateKbVisibilityParams {
     pub update_fields: Value,
 }
 
-fn any_field(value: &Value, key: &str) -> String {
-    match value.get(key) {
-        Some(Value::String(s)) => s.clone(),
-        Some(Value::Number(n)) => n.to_string(),
-        _ => String::new(),
-    }
-}
-
 fn render_kb_list(items: &[Value]) -> String {
     if items.is_empty() {
         return "No knowledge base articles.".to_string();
@@ -105,7 +97,7 @@ fn render_kb_list(items: &[Value]) -> String {
     let rows: Vec<Vec<String>> = items
         .iter()
         .map(|item| {
-            let id = item.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+            let id = id_field(item, "id");
             let name = escape_cell(&str_field(item, "name"));
             let faq = if item.get("is_faq").and_then(Value::as_i64).unwrap_or(0) == 1 { "yes" } else { "no" };
             vec![id, name, faq.to_string()]
@@ -118,7 +110,7 @@ fn render_visibility_table(headers: &[&str], items: &[Value], columns: &[&str]) 
     if items.is_empty() {
         return "None.".to_string();
     }
-    let rows: Vec<Vec<String>> = items.iter().map(|item| columns.iter().map(|c| escape_cell(&any_field(item, c))).collect()).collect();
+    let rows: Vec<Vec<String>> = items.iter().map(|item| columns.iter().map(|c| escape_cell(&id_field(item, c))).collect()).collect();
     table(headers, &rows)
 }
 
@@ -139,7 +131,7 @@ impl GlpiServer {
             .await
             .map_err(|e| e.to_string())?;
 
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         let mut rendered = render_kb_list(&items);
         if clamped {
             rendered = format!("_{}_\n\n{rendered}", self.labels.kb_clamp_warning);
@@ -152,7 +144,7 @@ impl GlpiServer {
         let result = self.client.get(&format!("/KnowbaseItem/{}", params.article_id), None).await.map_err(|e| e.to_string())?;
         let faq = if result.get("is_faq").and_then(Value::as_i64).unwrap_or(0) == 1 { "yes" } else { "no" };
         Ok(field_table(&[
-            ("ID", any_field(&result, "id")),
+            ("ID", id_field(&result, "id")),
             ("Name", str_field(&result, "name")),
             ("FAQ", faq.to_string()),
             ("Answer", strip_html(&str_field(&result, "answer"))),
@@ -183,8 +175,11 @@ impl GlpiServer {
             query.push(("criteria[1][value]".to_string(), params.keywords));
         }
 
-        let result = self.client.get("/search/KnowbaseItem", Some(&query)).await.map_err(|e| e.to_string())?;
-        let items = result.get("data").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut result = self.client.get("/search/KnowbaseItem", Some(&query)).await.map_err(|e| e.to_string())?;
+        let items = match result.get_mut("data").map(Value::take) {
+            Some(Value::Array(items)) => items,
+            _ => Vec::new(),
+        };
         if items.is_empty() {
             return Ok("No matching articles.".to_string());
         }
@@ -234,7 +229,7 @@ impl GlpiServer {
         }
 
         let result = self.client.post("/KnowbaseItem", &json!({ "input": input })).await.map_err(|e| e.to_string())?;
-        let id = any_field(&result, "id");
+        let id = id_field(&result, "id");
         Ok(format!("KB article #{id} \"{}\" created.", params.name))
     }
 
@@ -250,13 +245,13 @@ impl GlpiServer {
     #[rmcp::tool(description = "List all knowledge base categories as a Markdown table")]
     pub async fn list_kb_categories(&self) -> Result<String, String> {
         let result = self.client.get("/KnowbaseItemCategory", None).await.map_err(|e| e.to_string())?;
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         if items.is_empty() {
             return Ok("No categories.".to_string());
         }
         let rows: Vec<Vec<String>> = items
             .iter()
-            .map(|cat| vec![any_field(cat, "id"), escape_cell(&str_field(cat, "completename"))])
+            .map(|cat| vec![id_field(cat, "id"), escape_cell(&str_field(cat, "completename"))])
             .collect();
         Ok(format!("**{} categorie(s)**\n\n{}", items.len(), table(&["ID", "Name"], &rows)))
     }
@@ -271,10 +266,10 @@ impl GlpiServer {
         let users = self.client.get(&format!("/KnowbaseItem/{id}/KnowbaseItem_User"), None).await.map_err(|e| e.to_string())?;
         let entities = self.client.get(&format!("/KnowbaseItem/{id}/Entity_KnowbaseItem"), None).await.map_err(|e| e.to_string())?;
 
-        let profiles_md = render_visibility_table(&["ID", "Profile ID", "Entity"], &profiles.as_array().cloned().unwrap_or_default(), &["id", "profiles_id", "entities_id"]);
-        let groups_md = render_visibility_table(&["ID", "Group ID", "Entity"], &groups.as_array().cloned().unwrap_or_default(), &["id", "groups_id", "entities_id"]);
-        let users_md = render_visibility_table(&["ID", "User ID", "Entity"], &users.as_array().cloned().unwrap_or_default(), &["id", "users_id", "entities_id"]);
-        let entities_md = render_visibility_table(&["ID", "Entity ID"], &entities.as_array().cloned().unwrap_or_default(), &["id", "entities_id"]);
+        let profiles_md = render_visibility_table(&["ID", "Profile ID", "Entity"], &into_array(profiles), &["id", "profiles_id", "entities_id"]);
+        let groups_md = render_visibility_table(&["ID", "Group ID", "Entity"], &into_array(groups), &["id", "groups_id", "entities_id"]);
+        let users_md = render_visibility_table(&["ID", "User ID", "Entity"], &into_array(users), &["id", "users_id", "entities_id"]);
+        let entities_md = render_visibility_table(&["ID", "Entity ID"], &into_array(entities), &["id", "entities_id"]);
 
         Ok(format!(
             "**Profiles**\n\n{profiles_md}\n\n**Groups**\n\n{groups_md}\n\n**Users**\n\n{users_md}\n\n**Entities**\n\n{entities_md}"

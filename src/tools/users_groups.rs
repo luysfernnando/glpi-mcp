@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::markdown::{escape_cell, table};
+use crate::markdown::{escape_cell, id_field, into_array, table};
 use crate::server::GlpiServer;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -60,7 +60,7 @@ impl GlpiServer {
     #[rmcp::tool(description = "List GLPI users as a compact Markdown table")]
     pub async fn get_users(&self) -> Result<String, String> {
         let result = self.client.get("/User", None).await.map_err(|e| e.to_string())?;
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         if items.is_empty() {
             return Ok("No users.".to_string());
         }
@@ -68,7 +68,7 @@ impl GlpiServer {
         let rows: Vec<Vec<String>> = items
             .iter()
             .map(|user| {
-                let id = user.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+                let id = id_field(user, "id");
                 let login = escape_cell(user.get("name").and_then(Value::as_str).unwrap_or(""));
                 let realname = escape_cell(user.get("realname").and_then(Value::as_str).unwrap_or(""));
                 let firstname = escape_cell(user.get("firstname").and_then(Value::as_str).unwrap_or(""));
@@ -83,7 +83,7 @@ impl GlpiServer {
     #[rmcp::tool(description = "List GLPI groups as a compact Markdown table")]
     pub async fn get_groups(&self) -> Result<String, String> {
         let result = self.client.get("/Group", None).await.map_err(|e| e.to_string())?;
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         if items.is_empty() {
             return Ok("No groups.".to_string());
         }
@@ -91,7 +91,7 @@ impl GlpiServer {
         let rows: Vec<Vec<String>> = items
             .iter()
             .map(|group| {
-                let id = group.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+                let id = id_field(group, "id");
                 let name = escape_cell(group.get("completename").or_else(|| group.get("name")).and_then(Value::as_str).unwrap_or(""));
                 let comment = escape_cell(group.get("comment").and_then(Value::as_str).unwrap_or(""));
                 vec![id, name, comment]
@@ -125,7 +125,7 @@ impl GlpiServer {
         }
 
         let result = self.client.post("/Group", &json!({ "input": input })).await.map_err(|e| e.to_string())?;
-        let id = result.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+        let id = id_field(&result, "id");
         Ok(format!("Group #{id} \"{}\" created.", params.name))
     }
 

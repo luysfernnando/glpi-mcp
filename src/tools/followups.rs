@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::markdown::strip_html;
+use crate::markdown::{id_field, into_array, strip_html};
 use crate::server::GlpiServer;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -27,7 +27,7 @@ pub struct GetFollowupParams {
 }
 
 fn render_followup(followup: &Value) -> String {
-    let id = followup.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let id = id_field(followup, "id");
     let date = followup.get("date").and_then(Value::as_str).unwrap_or("");
     let privacy = if followup.get("is_private").and_then(Value::as_i64).unwrap_or(0) == 1 { " (private)" } else { "" };
     let content = strip_html(followup.get("content").and_then(Value::as_str).unwrap_or(""));
@@ -51,7 +51,7 @@ impl GlpiServer {
             .get(&format!("/Ticket/{}/ITILFollowup", params.ticket_id), None)
             .await
             .map_err(|e| e.to_string())?;
-        Ok(render_followups_list(&result.as_array().cloned().unwrap_or_default()))
+        Ok(render_followups_list(&into_array(result)))
     }
 
     #[rmcp::tool(description = "Add a followup to a ticket")]
@@ -69,7 +69,7 @@ impl GlpiServer {
             )
             .await
             .map_err(|e| e.to_string())?;
-        let id = result.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+        let id = id_field(&result, "id");
         Ok(format!("Followup #{id} added to ticket #{}.", params.ticket_id))
     }
 

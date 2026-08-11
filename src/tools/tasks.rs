@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::labels::lookup;
-use crate::markdown::{escape_cell, strip_html, table, truncate};
+use crate::markdown::{cell, id_field, into_array, table};
 use crate::server::GlpiServer;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -52,7 +52,7 @@ impl GlpiServer {
             .get(&format!("/Ticket/{}/TicketTask", params.ticket_id), None)
             .await
             .map_err(|e| e.to_string())?;
-        let items = result.as_array().cloned().unwrap_or_default();
+        let items = into_array(result);
         if items.is_empty() {
             return Ok("No tasks.".to_string());
         }
@@ -60,7 +60,7 @@ impl GlpiServer {
         let rows: Vec<Vec<String>> = items
             .iter()
             .map(|task| {
-                let id = task.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+                let id = id_field(task, "id");
                 let status = lookup(&self.labels.task_status, task.get("state").and_then(Value::as_i64), self.labels.unknown).to_string();
                 let assignee = task
                     .get("users_id_tech")
@@ -69,7 +69,7 @@ impl GlpiServer {
                     .map(|id| id.to_string())
                     .unwrap_or_else(|| self.labels.unassigned.to_string());
                 let duration = task.get("actiontime").and_then(Value::as_i64).map(|s| format!("{}min", s / 60)).unwrap_or_default();
-                let content = truncate(&escape_cell(&strip_html(task.get("content").and_then(Value::as_str).unwrap_or(""))), 100);
+                let content = cell(task.get("content").and_then(Value::as_str).unwrap_or(""), 100);
                 vec![id, status, assignee, duration, content]
             })
             .collect();
@@ -98,7 +98,7 @@ impl GlpiServer {
         }
 
         let result = self.client.post("/TicketTask", &json!({ "input": input })).await.map_err(|e| e.to_string())?;
-        let id = result.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+        let id = id_field(&result, "id");
         Ok(format!("Task #{id} added to ticket #{}.", params.ticket_id))
     }
 
