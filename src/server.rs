@@ -29,7 +29,9 @@ impl GlpiServer {
         Self {
             client,
             labels,
-            tool_router: Self::tickets_tool_router() + Self::session_tool_router(),
+            tool_router: Self::tickets_tool_router()
+                + Self::session_tool_router()
+                + Self::users_groups_tool_router(),
         }
     }
 }
