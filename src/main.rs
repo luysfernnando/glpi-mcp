@@ -1,7 +1,3 @@
-mod config;
-mod error;
-mod labels;
-
 fn main() {
-    println!("glpi-mcp scaffold — client/tools not wired yet");
+    println!("glpi-mcp scaffold — MCP server wiring lands in phase 3");
 }
