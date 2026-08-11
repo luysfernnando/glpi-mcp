@@ -1,6 +1,6 @@
 # Rusty GLPI MCP
 
-**A high performance [Model Context Protocol](https://modelcontextprotocol.io) server for [GLPI](https://glpi-project.org/)**, rewritten in Rust from the ground up for Claude Code and any MCP compatible client.
+**A high performance, token efficient [Model Context Protocol](https://modelcontextprotocol.io) server for [GLPI](https://glpi-project.org/)**, rewritten in Rust from the ground up for Claude Code and any MCP compatible client. Every response is built around spending as few tokens as possible, so your context window lasts for a whole conversation instead of one ticket lookup.
 
 **43 tools** covering tickets, followups, tasks, solutions, statistics, the knowledge base, users and groups.
 
@@ -15,6 +15,7 @@
 
 The original prototype was Python and `FastMCP`. It worked, but it also loaded every single ticket into memory for a basic stats query, kept a global mutable session token, and shipped as an interpreted script with a whole dependency tree behind it. This rewrite fixes all of that at the language level:
 
+* **Every answer is built to spend as few tokens as possible.** Responses come back as compact Markdown tables and field lists, not raw GLPI JSON. All GLPI HTML noise (inline styles, entity codes, HATEOAS `links` arrays) is stripped before it ever reaches the model. Reports that would otherwise pull every field of every ticket now request only the columns each answer actually needs. Real world result on a ticket with 8000+ characters of HTML: a Markdown response under 2000 characters, same information.
 * **Starts and answers instantly.** It is a single compiled program, not a script an interpreter has to read line by line every time it runs. Ask something and get an answer with no warm up delay.
 * **Barely uses any memory.** A few megabytes while running, instead of a whole Python environment plus every library it drags along. Your machine (or your server) barely notices it is there.
 * **Logs itself back in on its own.** GLPI sessions expire. When that happens this server quietly reauthenticates and finishes your request anyway. You never see a broken "session expired" error.
