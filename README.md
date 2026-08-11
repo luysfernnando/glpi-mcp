@@ -1,5 +1,9 @@
 # Rusty GLPI MCP
 
+<p align="left">
+  <img alt="Rusty GLPI MCP banner" src=".cargo/assets/banner.png">
+</p>
+
 **A high performance, token efficient [Model Context Protocol](https://modelcontextprotocol.io) server for [GLPI](https://glpi-project.org/)**, rewritten in Rust from the ground up for Claude Code and any MCP compatible client. Every response is built around spending as few tokens as possible, so your context window lasts for a whole conversation instead of one ticket lookup.
 
 **43 tools** covering tickets, followups, tasks, solutions, statistics, the knowledge base, users and groups.
@@ -147,3 +151,7 @@ Restart Claude Code (or run `claude mcp list` to confirm `glpi` is connected), t
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Found this useful?
+
+Star the repo. It costs nothing and helps more people find this project.
