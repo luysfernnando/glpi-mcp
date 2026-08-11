@@ -47,7 +47,7 @@ impl GLPIClient {
         })
     }
 
-    pub async fn get(&self, endpoint: &str, query: Option<&[(&str, String)]>) -> Result<Value, GlpiError> {
+    pub async fn get(&self, endpoint: &str, query: Option<&[(String, String)]>) -> Result<Value, GlpiError> {
         self.request(Method::GET, endpoint, query, None).await
     }
 
@@ -64,17 +64,21 @@ impl GLPIClient {
     }
 
     /// Closes the active GLPI session and forgets the cached token.
+    /// A no-op (not a lazy `initSession`) when no session was ever opened.
     pub async fn kill_session(&self) -> Result<Value, GlpiError> {
+        if self.session_token.read().await.is_none() {
+            return Ok(json!({ "message": "No active session." }));
+        }
         let result = self.get("/killSession", None).await;
         *self.session_token.write().await = None;
-        result
+        result.map(|_| json!({ "message": "Session closed." }))
     }
 
     async fn request(
         &self,
         method: Method,
         endpoint: &str,
-        query: Option<&[(&str, String)]>,
+        query: Option<&[(String, String)]>,
         body: Option<&Value>,
     ) -> Result<Value, GlpiError> {
         let url = format!(
@@ -112,7 +116,7 @@ impl GLPIClient {
         &self,
         method: Method,
         url: &str,
-        query: Option<&[(&str, String)]>,
+        query: Option<&[(String, String)]>,
         body: Option<&Value>,
         session_token: &str,
     ) -> Result<(StatusCode, String), GlpiError> {

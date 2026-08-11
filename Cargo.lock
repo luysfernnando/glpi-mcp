@@ -429,6 +429,7 @@ dependencies = [
  "dotenvy",
  "reqwest",
  "rmcp",
+ "schemars",
  "secrecy",
  "serde",
  "serde_json",

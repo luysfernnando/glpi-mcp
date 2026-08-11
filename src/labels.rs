@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde_json::{json, Value};
+
 use crate::config::Language;
 
 /// Human-readable labels for GLPI's numeric enum fields, mirrored fr/en.
@@ -106,6 +108,43 @@ fn map<const N: usize>(pairs: [(i64, &'static str); N]) -> HashMap<i64, &'static
     HashMap::from(pairs)
 }
 
+fn lookup<'a>(table: &'a HashMap<i64, &'static str>, value: Option<i64>, fallback: &'a str) -> &'a str {
+    value.and_then(|v| table.get(&v).copied()).unwrap_or(fallback)
+}
+
+impl Labels {
+    /// Adds `_status_label`/`_type_label`/`_priority_label`/`_urgency_label`/`_impact_label`
+    /// fields to a ticket JSON object, mirroring the Python original's `_enrich_ticket`.
+    pub fn enrich_ticket(&self, mut ticket: Value) -> Value {
+        if let Some(obj) = ticket.as_object_mut() {
+            let field = |obj: &serde_json::Map<String, Value>, key: &str| obj.get(key).and_then(Value::as_i64);
+            let status = field(obj, "status");
+            let ticket_type = field(obj, "type");
+            let priority = field(obj, "priority");
+            let urgency = field(obj, "urgency");
+            let impact = field(obj, "impact");
+
+            obj.insert("_status_label".into(), json!(lookup(&self.ticket_status, status, self.unknown)));
+            obj.insert("_type_label".into(), json!(lookup(&self.ticket_type, ticket_type, self.unknown)));
+            obj.insert(
+                "_priority_label".into(),
+                json!(lookup(&self.ticket_priority, priority, self.unknown_f)),
+            );
+            obj.insert(
+                "_urgency_label".into(),
+                json!(lookup(&self.ticket_priority, urgency, self.unknown_f)),
+            );
+            obj.insert("_impact_label".into(), json!(lookup(&self.ticket_priority, impact, self.unknown)));
+        }
+        ticket
+    }
+
+    /// Label for a `Ticket_Ticket.link` value (1=linked, 2=duplicate, 3=child, 4=parent).
+    pub fn ticket_link_label(&self, link: Option<i64>) -> &str {
+        lookup(&self.ticket_link_type, link, self.unknown)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,5 +158,22 @@ mod tests {
         fr_keys.sort();
         en_keys.sort();
         assert_eq!(fr_keys, en_keys);
+    }
+
+    #[test]
+    fn enrich_ticket_adds_readable_labels() {
+        let labels = Labels::for_language(Language::En);
+        let ticket = json!({ "id": 1, "status": 2, "type": 1, "priority": 4, "urgency": 3, "impact": 1 });
+        let enriched = labels.enrich_ticket(ticket);
+        assert_eq!(enriched["_status_label"], "In progress (assigned)");
+        assert_eq!(enriched["_type_label"], "Incident");
+        assert_eq!(enriched["_priority_label"], "High");
+    }
+
+    #[test]
+    fn enrich_ticket_falls_back_to_unknown_for_missing_fields() {
+        let labels = Labels::for_language(Language::En);
+        let enriched = labels.enrich_ticket(json!({ "id": 1 }));
+        assert_eq!(enriched["_status_label"], "Unknown");
     }
 }
