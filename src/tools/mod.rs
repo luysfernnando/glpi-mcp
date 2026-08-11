@@ -1,7 +1,9 @@
 pub mod categories;
 pub mod followups;
+pub mod kb;
 pub mod session;
 pub mod solutions;
+pub mod stats;
 pub mod tasks;
 pub mod tickets;
 pub mod users_groups;

@@ -108,7 +108,7 @@ fn map<const N: usize>(pairs: [(i64, &'static str); N]) -> HashMap<i64, &'static
     HashMap::from(pairs)
 }
 
-fn lookup<'a>(table: &'a HashMap<i64, &'static str>, value: Option<i64>, fallback: &'a str) -> &'a str {
+pub(crate) fn lookup<'a>(table: &'a HashMap<i64, &'static str>, value: Option<i64>, fallback: &'a str) -> &'a str {
     value.and_then(|v| table.get(&v).copied()).unwrap_or(fallback)
 }
 

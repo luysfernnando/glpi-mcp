@@ -35,7 +35,9 @@ impl GlpiServer {
                 + Self::followups_tool_router()
                 + Self::tasks_tool_router()
                 + Self::solutions_tool_router()
-                + Self::categories_tool_router(),
+                + Self::categories_tool_router()
+                + Self::stats_tool_router()
+                + Self::kb_tool_router(),
         }
     }
 }
