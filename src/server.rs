@@ -31,7 +31,11 @@ impl GlpiServer {
             labels,
             tool_router: Self::tickets_tool_router()
                 + Self::session_tool_router()
-                + Self::users_groups_tool_router(),
+                + Self::users_groups_tool_router()
+                + Self::followups_tool_router()
+                + Self::tasks_tool_router()
+                + Self::solutions_tool_router()
+                + Self::categories_tool_router(),
         }
     }
 }
