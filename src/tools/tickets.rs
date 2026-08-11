@@ -4,7 +4,108 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::labels::{lookup, Labels};
+use crate::markdown::{escape_cell, field_table, strip_html, table, truncate};
 use crate::server::GlpiServer;
+
+fn ticket_row(ticket: &Value, labels: &Labels) -> Vec<String> {
+    let id = ticket.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let name = truncate(&escape_cell(ticket.get("name").and_then(Value::as_str).unwrap_or("")), 80);
+    let status = lookup(&labels.ticket_status, ticket.get("status").and_then(Value::as_i64), labels.unknown).to_string();
+    let priority = lookup(&labels.ticket_priority, ticket.get("priority").and_then(Value::as_i64), labels.unknown_f).to_string();
+    let ticket_type = lookup(&labels.ticket_type, ticket.get("type").and_then(Value::as_i64), labels.unknown).to_string();
+    let opened = ticket.get("date").and_then(Value::as_str).unwrap_or("").to_string();
+    let snippet = truncate(&escape_cell(&strip_html(ticket.get("content").and_then(Value::as_str).unwrap_or(""))), 100);
+    vec![id, name, status, priority, ticket_type, opened, snippet]
+}
+
+fn render_ticket_list(items: &[Value], labels: &Labels) -> String {
+    if items.is_empty() {
+        return "No tickets found.".to_string();
+    }
+    let rows: Vec<Vec<String>> = items.iter().map(|t| ticket_row(t, labels)).collect();
+    format!(
+        "**{} ticket(s)**\n\n{}",
+        items.len(),
+        table(&["ID", "Title", "Status", "Priority", "Type", "Opened", "Description"], &rows)
+    )
+}
+
+fn render_ticket_detail(ticket: &Value, labels: &Labels) -> String {
+    let id = ticket.get("id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let name = ticket.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+    let status = lookup(&labels.ticket_status, ticket.get("status").and_then(Value::as_i64), labels.unknown).to_string();
+    let ticket_type = lookup(&labels.ticket_type, ticket.get("type").and_then(Value::as_i64), labels.unknown).to_string();
+    let priority = lookup(&labels.ticket_priority, ticket.get("priority").and_then(Value::as_i64), labels.unknown_f).to_string();
+    let urgency = lookup(&labels.ticket_priority, ticket.get("urgency").and_then(Value::as_i64), labels.unknown_f).to_string();
+    let impact = lookup(&labels.ticket_priority, ticket.get("impact").and_then(Value::as_i64), labels.unknown).to_string();
+    let category_id = ticket.get("itilcategories_id").and_then(Value::as_i64).map(|v| v.to_string()).unwrap_or_default();
+    let opened = ticket.get("date").and_then(Value::as_str).unwrap_or("").to_string();
+    let deadline = ticket.get("time_to_resolve").and_then(Value::as_str).unwrap_or("").to_string();
+    let solved = ticket.get("solvedate").and_then(Value::as_str).unwrap_or("").to_string();
+    let closed = ticket.get("closedate").and_then(Value::as_str).unwrap_or("").to_string();
+
+    let fields = field_table(&[
+        ("ID", id.clone()),
+        ("Status", status),
+        ("Type", ticket_type),
+        ("Priority", priority),
+        ("Urgency", urgency),
+        ("Impact", impact),
+        ("Category ID", category_id),
+        ("Opened", opened),
+        ("Resolution deadline", deadline),
+        ("Solved", solved),
+        ("Closed", closed),
+    ]);
+    let content = strip_html(ticket.get("content").and_then(Value::as_str).unwrap_or(""));
+
+    format!("# Ticket #{id}: {name}\n\n{fields}\n\n## Description\n\n{content}")
+}
+
+/// Numeric GLPI search-option field IDs used by `search_tickets`' own criteria, mapped
+/// to a friendly column header. GLPI's `/search/*` endpoint keys rows by these IDs
+/// instead of named fields, unlike the plain REST endpoints.
+const SEARCH_FIELD_LABELS: &[(&str, &str)] = &[
+    ("2", "ID"),
+    ("1", "Name"),
+    ("12", "Status"),
+    ("14", "Type"),
+    ("7", "Category"),
+    ("5", "Assigned to"),
+];
+
+fn render_search_results(result: &Value) -> String {
+    let Some(data) = result.get("data").and_then(Value::as_array) else {
+        return "No results.".to_string();
+    };
+    if data.is_empty() {
+        return "No results.".to_string();
+    }
+
+    let present: Vec<&(&str, &str)> =
+        SEARCH_FIELD_LABELS.iter().filter(|(key, _)| data.iter().any(|row| row.get(*key).is_some())).collect();
+    let headers: Vec<&str> = present.iter().map(|(_, label)| *label).collect();
+    let rows: Vec<Vec<String>> = data
+        .iter()
+        .map(|row| {
+            present
+                .iter()
+                .map(|(key, _)| {
+                    let raw = match row.get(*key) {
+                        Some(Value::String(s)) => s.clone(),
+                        Some(other) => other.to_string(),
+                        None => String::new(),
+                    };
+                    escape_cell(&truncate(&raw, 80))
+                })
+                .collect()
+        })
+        .collect();
+
+    let total = result.get("totalcount").and_then(Value::as_i64).unwrap_or(data.len() as i64);
+    format!("**{} result(s)** (total: {total})\n\n{}", data.len(), table(&headers, &rows))
+}
 
 fn default_range_limit() -> i64 {
     50
@@ -111,11 +212,12 @@ fn default_true() -> bool {
 
 #[tool_router(router = tickets_tool_router, vis = "pub")]
 impl GlpiServer {
-    #[rmcp::tool(description = "List GLPI tickets with optional status/type filters and pagination")]
-    pub async fn list_tickets(
-        &self,
-        Parameters(params): Parameters<ListTicketsParams>,
-    ) -> Result<Json<Value>, String> {
+    #[rmcp::tool(
+        description = "List GLPI tickets with optional status/type filters and pagination. \
+            Returns a compact Markdown table (id, title, status, priority, type, opened date, \
+            description snippet); call get_ticket for full details on one ticket"
+    )]
+    pub async fn list_tickets(&self, Parameters(params): Parameters<ListTicketsParams>) -> Result<String, String> {
         let range = format!(
             "{}-{}",
             params.range_start,
@@ -130,30 +232,27 @@ impl GlpiServer {
         }
 
         let result = self.client.get("/Ticket", Some(&query)).await.map_err(|e| e.to_string())?;
-        let enriched = match result {
-            Value::Array(items) => {
-                Value::Array(items.into_iter().map(|t| self.labels.enrich_ticket(t)).collect())
-            }
-            other => other,
-        };
-        Ok(Json(enriched))
+        let items = result.as_array().cloned().unwrap_or_default();
+        Ok(render_ticket_list(&items, &self.labels))
     }
 
-    #[rmcp::tool(description = "Get full details of a ticket, with readable labels")]
-    pub async fn get_ticket(&self, Parameters(params): Parameters<GetTicketParams>) -> Result<Json<Value>, String> {
+    #[rmcp::tool(
+        description = "Get full details of a ticket as Markdown: field table plus the description with HTML stripped"
+    )]
+    pub async fn get_ticket(&self, Parameters(params): Parameters<GetTicketParams>) -> Result<String, String> {
         let ticket = self
             .client
             .get(&format!("/Ticket/{}", params.ticket_id), None)
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Json(self.labels.enrich_ticket(ticket)))
+        Ok(render_ticket_detail(&ticket, &self.labels))
     }
 
-    #[rmcp::tool(description = "Advanced ticket search via GLPI's /search/Ticket, all filters optional and combinable")]
-    pub async fn search_tickets(
-        &self,
-        Parameters(params): Parameters<SearchTicketsParams>,
-    ) -> Result<Json<Value>, String> {
+    #[rmcp::tool(
+        description = "Advanced ticket search via GLPI's /search/Ticket, all filters optional and \
+            combinable. Returns a compact Markdown table"
+    )]
+    pub async fn search_tickets(&self, Parameters(params): Parameters<SearchTicketsParams>) -> Result<String, String> {
         let range = format!(
             "{}-{}",
             params.range_start,
@@ -190,7 +289,7 @@ impl GlpiServer {
             .get("/search/Ticket", Some(&query))
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Json(result))
+        Ok(render_search_results(&result))
     }
 
     #[rmcp::tool(description = "Create a new ticket")]

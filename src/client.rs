@@ -103,7 +103,10 @@ impl GLPIClient {
         };
 
         match outcome {
-            ResponseOutcome::Success(value) => Ok(value),
+            ResponseOutcome::Success(mut value) => {
+                crate::compact::compact_value(&mut value);
+                Ok(value)
+            }
             ResponseOutcome::SessionExpired { code, message } => {
                 Err(GlpiError::SessionInvalid { code, message })
             }

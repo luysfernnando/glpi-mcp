@@ -46,12 +46,11 @@ async fn clamps_range_limit_when_offset_above_60() {
     let result = server
         .list_kb_articles(Parameters(ListKbArticlesParams { range_start: 61, range_limit: 50 }))
         .await
-        .unwrap()
-        .0;
+        .unwrap();
 
-    assert_eq!(result["_clamped_range_limit"], 10);
-    assert!(result["_warning"].is_string());
-    assert_eq!(result["items"], json!([{ "id": 1 }]));
+    assert!(result.contains("| 1 |"));
+    assert!(result.contains("**1 article(s)**"));
+    assert!(result.starts_with('_'));
 }
 
 #[tokio::test]
@@ -68,8 +67,8 @@ async fn no_clamping_for_small_offset() {
     let result = server
         .list_kb_articles(Parameters(ListKbArticlesParams { range_start: 0, range_limit: 50 }))
         .await
-        .unwrap()
-        .0;
+        .unwrap();
 
-    assert_eq!(result, json!([{ "id": 2 }]));
+    assert!(result.contains("| 2 |"));
+    assert!(!result.starts_with('_'));
 }
