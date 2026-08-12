@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -24,19 +25,20 @@ impl GLPIClient {
             .unwrap_or_else(|| default.to_string())
     }
 
-    async fn discover_search_options(&self, itemtype: &str) -> HashMap<String, String> {
+    async fn discover_search_options(&self, itemtype: &str) -> Arc<HashMap<String, String>> {
         if let Some(cached) = self.search_options.read().await.get(itemtype) {
-            return cached.clone();
+            return Arc::clone(cached);
         }
 
-        let mapping = self
-            .fetch_search_options(itemtype)
-            .await
-            .unwrap_or_default();
+        let mapping = Arc::new(
+            self.fetch_search_options(itemtype)
+                .await
+                .unwrap_or_default(),
+        );
         self.search_options
             .write()
             .await
-            .insert(itemtype.to_string(), mapping.clone());
+            .insert(itemtype.to_string(), Arc::clone(&mapping));
         mapping
     }
 

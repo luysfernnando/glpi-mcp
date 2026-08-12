@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::{Method, StatusCode};
@@ -21,7 +22,7 @@ pub struct GLPIClient {
     config: GlpiConfig,
     http: reqwest::Client,
     session_token: RwLock<Option<String>>,
-    pub(crate) search_options: RwLock<HashMap<String, HashMap<String, String>>>,
+    pub(crate) search_options: RwLock<HashMap<String, Arc<HashMap<String, String>>>>,
 }
 
 enum ResponseOutcome {
@@ -224,7 +225,7 @@ fn classify(status: StatusCode, text: &str) -> ResponseOutcome {
             }
         }
         Ok(Value::Array(items)) if is_error_array(&items) => {
-            let code = items[0].as_str().unwrap().to_string();
+            let code = items[0].as_str().unwrap_or_default().to_string();
             let message = items[1].as_str().unwrap_or_default().to_string();
             if SESSION_EXPIRED_CODES.contains(&code.as_str()) {
                 ResponseOutcome::SessionExpired { code, message }

@@ -216,6 +216,7 @@ impl GlpiServer {
             params.range_start + params.range_limit - 1
         );
 
+        let keywords = params.keywords;
         let mut query: Vec<(String, String)> = vec![
             ("range".to_string(), range),
             ("criteria[0][field]".to_string(), name_field.clone()),
@@ -223,9 +224,9 @@ impl GlpiServer {
                 "criteria[0][searchtype]".to_string(),
                 "contains".to_string(),
             ),
-            ("criteria[0][value]".to_string(), params.keywords.clone()),
         ];
         if params.search_content {
+            query.push(("criteria[0][value]".to_string(), keywords.clone()));
             query.push(("criteria[0][link]".to_string(), "AND".to_string()));
             query.push(("criteria[1][link]".to_string(), "OR".to_string()));
             query.push(("criteria[1][field]".to_string(), answer_field.clone()));
@@ -233,7 +234,9 @@ impl GlpiServer {
                 "criteria[1][searchtype]".to_string(),
                 "contains".to_string(),
             ));
-            query.push(("criteria[1][value]".to_string(), params.keywords));
+            query.push(("criteria[1][value]".to_string(), keywords));
+        } else {
+            query.push(("criteria[0][value]".to_string(), keywords));
         }
 
         let mut result = self
