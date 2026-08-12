@@ -7,7 +7,10 @@ use serde_json::Value;
 
 /// Escapes characters that would break a Markdown table cell.
 pub fn escape_cell(value: &str) -> String {
-    value.replace('|', "\\|").replace('\n', " ").replace('\r', "")
+    value
+        .replace('|', "\\|")
+        .replace('\n', " ")
+        .replace('\r', "")
 }
 
 /// Truncates to at most `max_chars` characters (by codepoint, never mid character), appending an ellipsis.
@@ -37,7 +40,12 @@ pub fn strip_html(input: &str) -> String {
         if in_tag {
             if c == '>' {
                 in_tag = false;
-                let name = tag.trim_start_matches('/').split_whitespace().next().unwrap_or("").to_lowercase();
+                let name = tag
+                    .trim_start_matches('/')
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_lowercase();
                 if matches!(name.as_str(), "br" | "p" | "div" | "li" | "tr") {
                     out.push('\n');
                 }
@@ -111,7 +119,10 @@ fn decode_entity_name(name: &str) -> Option<char> {
         "nbsp" => Some(' '),
         _ => {
             let digits = name.strip_prefix('#')?;
-            let code = match digits.strip_prefix('x').or_else(|| digits.strip_prefix('X')) {
+            let code = match digits
+                .strip_prefix('x')
+                .or_else(|| digits.strip_prefix('X'))
+            {
                 Some(hex) => u32::from_str_radix(hex, 16).ok()?,
                 None => digits.parse().ok()?,
             };
@@ -162,7 +173,11 @@ pub fn into_array(value: Value) -> Vec<Value> {
 
 /// Reads a string field out of a JSON object, defaulting to empty.
 pub fn str_field(value: &Value, key: &str) -> String {
-    value.get(key).and_then(Value::as_str).unwrap_or("").to_string()
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
 }
 
 /// Reads a numeric or string field out of a JSON object as a plain string,
@@ -195,7 +210,10 @@ mod tests {
 
     #[test]
     fn strip_html_drops_inline_tags_without_adding_newlines() {
-        assert_eq!(strip_html("<strong>bold</strong> and <em>italic</em>"), "bold and italic");
+        assert_eq!(
+            strip_html("<strong>bold</strong> and <em>italic</em>"),
+            "bold and italic"
+        );
     }
 
     #[test]

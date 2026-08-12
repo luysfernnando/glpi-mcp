@@ -1,5 +1,5 @@
-mod compact;
 pub mod client;
+mod compact;
 pub mod config;
 pub mod error;
 pub mod labels;

@@ -92,8 +92,9 @@ async fn surfaces_object_shaped_api_errors() {
     Mock::given(method("GET"))
         .and(path("/apirest.php/Ticket/999"))
         .respond_with(
-            ResponseTemplate::new(400)
-                .set_body_json(json!({ "error": "ERROR_ITEM_NOT_FOUND", "message": "no such ticket" })),
+            ResponseTemplate::new(400).set_body_json(
+                json!({ "error": "ERROR_ITEM_NOT_FOUND", "message": "no such ticket" }),
+            ),
         )
         .mount(&server)
         .await;

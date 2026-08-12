@@ -44,7 +44,10 @@ async fn clamps_range_limit_when_offset_above_60() {
 
     let server = build_server(&mock_server).await;
     let result = server
-        .list_kb_articles(Parameters(ListKbArticlesParams { range_start: 61, range_limit: 50 }))
+        .list_kb_articles(Parameters(ListKbArticlesParams {
+            range_start: 61,
+            range_limit: 50,
+        }))
         .await
         .unwrap();
 
@@ -65,7 +68,10 @@ async fn no_clamping_for_small_offset() {
 
     let server = build_server(&mock_server).await;
     let result = server
-        .list_kb_articles(Parameters(ListKbArticlesParams { range_start: 0, range_limit: 50 }))
+        .list_kb_articles(Parameters(ListKbArticlesParams {
+            range_start: 0,
+            range_limit: 50,
+        }))
         .await
         .unwrap();
 

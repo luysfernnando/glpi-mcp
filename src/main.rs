@@ -4,8 +4,8 @@ use glpi_mcp::client::GLPIClient;
 use glpi_mcp::config::GlpiConfig;
 use glpi_mcp::labels::Labels;
 use glpi_mcp::server::GlpiServer;
-use rmcp::transport::stdio;
 use rmcp::ServiceExt;
+use rmcp::transport::stdio;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

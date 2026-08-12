@@ -2,7 +2,7 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::markdown::{escape_cell, id_field, into_array, table};
 use crate::server::GlpiServer;
@@ -46,7 +46,9 @@ fn default_true() -> bool {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct UpdateGroupParams {
     pub group_id: i64,
-    #[schemars(description = "Fields to change, e.g. name, comment, groups_id (parent), is_assign, ...")]
+    #[schemars(
+        description = "Fields to change, e.g. name, comment, groups_id (parent), is_assign, ..."
+    )]
     pub update_fields: Value,
 }
 
@@ -59,7 +61,11 @@ pub struct DeleteGroupParams {
 impl GlpiServer {
     #[rmcp::tool(description = "List GLPI users as a compact Markdown table")]
     pub async fn get_users(&self) -> Result<String, String> {
-        let result = self.client.get("/User", None).await.map_err(|e| e.to_string())?;
+        let result = self
+            .client
+            .get("/User", None)
+            .await
+            .map_err(|e| e.to_string())?;
         let items = into_array(result);
         if items.is_empty() {
             return Ok("No users.".to_string());
@@ -70,19 +76,33 @@ impl GlpiServer {
             .map(|user| {
                 let id = id_field(user, "id");
                 let login = escape_cell(user.get("name").and_then(Value::as_str).unwrap_or(""));
-                let realname = escape_cell(user.get("realname").and_then(Value::as_str).unwrap_or(""));
-                let firstname = escape_cell(user.get("firstname").and_then(Value::as_str).unwrap_or(""));
-                let active = if user.get("is_active").and_then(Value::as_i64).unwrap_or(1) == 1 { "yes" } else { "no" };
+                let realname =
+                    escape_cell(user.get("realname").and_then(Value::as_str).unwrap_or(""));
+                let firstname =
+                    escape_cell(user.get("firstname").and_then(Value::as_str).unwrap_or(""));
+                let active = if user.get("is_active").and_then(Value::as_i64).unwrap_or(1) == 1 {
+                    "yes"
+                } else {
+                    "no"
+                };
                 vec![id, login, firstname, realname, active.to_string()]
             })
             .collect();
 
-        Ok(format!("**{} user(s)**\n\n{}", items.len(), table(&["ID", "Login", "First name", "Last name", "Active"], &rows)))
+        Ok(format!(
+            "**{} user(s)**\n\n{}",
+            items.len(),
+            table(&["ID", "Login", "First name", "Last name", "Active"], &rows)
+        ))
     }
 
     #[rmcp::tool(description = "List GLPI groups as a compact Markdown table")]
     pub async fn get_groups(&self) -> Result<String, String> {
-        let result = self.client.get("/Group", None).await.map_err(|e| e.to_string())?;
+        let result = self
+            .client
+            .get("/Group", None)
+            .await
+            .map_err(|e| e.to_string())?;
         let items = into_array(result);
         if items.is_empty() {
             return Ok("No groups.".to_string());
@@ -92,17 +112,31 @@ impl GlpiServer {
             .iter()
             .map(|group| {
                 let id = id_field(group, "id");
-                let name = escape_cell(group.get("completename").or_else(|| group.get("name")).and_then(Value::as_str).unwrap_or(""));
-                let comment = escape_cell(group.get("comment").and_then(Value::as_str).unwrap_or(""));
+                let name = escape_cell(
+                    group
+                        .get("completename")
+                        .or_else(|| group.get("name"))
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                );
+                let comment =
+                    escape_cell(group.get("comment").and_then(Value::as_str).unwrap_or(""));
                 vec![id, name, comment]
             })
             .collect();
 
-        Ok(format!("**{} group(s)**\n\n{}", items.len(), table(&["ID", "Name", "Comment"], &rows)))
+        Ok(format!(
+            "**{} group(s)**\n\n{}",
+            items.len(),
+            table(&["ID", "Name", "Comment"], &rows)
+        ))
     }
 
     #[rmcp::tool(description = "Create a new GLPI group")]
-    pub async fn create_group(&self, Parameters(params): Parameters<CreateGroupParams>) -> Result<String, String> {
+    pub async fn create_group(
+        &self,
+        Parameters(params): Parameters<CreateGroupParams>,
+    ) -> Result<String, String> {
         let mut input = json!({
             "name": params.name,
             "entities_id": params.entities_id,
@@ -124,23 +158,39 @@ impl GlpiServer {
             obj.insert("groups_id".into(), json!(parent_group_id));
         }
 
-        let result = self.client.post("/Group", &json!({ "input": input })).await.map_err(|e| e.to_string())?;
+        let result = self
+            .client
+            .post("/Group", &json!({ "input": input }))
+            .await
+            .map_err(|e| e.to_string())?;
         let id = id_field(&result, "id");
         Ok(format!("Group #{id} \"{}\" created.", params.name))
     }
 
     #[rmcp::tool(description = "Update a GLPI group; pass only the fields to change")]
-    pub async fn update_group(&self, Parameters(params): Parameters<UpdateGroupParams>) -> Result<String, String> {
+    pub async fn update_group(
+        &self,
+        Parameters(params): Parameters<UpdateGroupParams>,
+    ) -> Result<String, String> {
         self.client
-            .put(&format!("/Group/{}", params.group_id), &json!({ "input": params.update_fields }))
+            .put(
+                &format!("/Group/{}", params.group_id),
+                &json!({ "input": params.update_fields }),
+            )
             .await
             .map_err(|e| e.to_string())?;
         Ok(format!("Group #{} updated.", params.group_id))
     }
 
     #[rmcp::tool(description = "Delete a GLPI group by ID")]
-    pub async fn delete_group(&self, Parameters(params): Parameters<DeleteGroupParams>) -> Result<String, String> {
-        self.client.delete(&format!("/Group/{}", params.group_id)).await.map_err(|e| e.to_string())?;
+    pub async fn delete_group(
+        &self,
+        Parameters(params): Parameters<DeleteGroupParams>,
+    ) -> Result<String, String> {
+        self.client
+            .delete(&format!("/Group/{}", params.group_id))
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(format!("Group #{} deleted.", params.group_id))
     }
 }

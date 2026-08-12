@@ -2,20 +2,47 @@ use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::labels::{lookup, Labels};
-use crate::markdown::{cell, escape_cell, field_table, id_field, into_array, strip_html, table, truncate};
+use crate::labels::{Labels, lookup};
+use crate::markdown::{
+    cell, escape_cell, field_table, id_field, into_array, strip_html, table, truncate,
+};
 use crate::server::GlpiServer;
 
 fn ticket_row(ticket: &Value, labels: &Labels) -> Vec<String> {
     let id = id_field(ticket, "id");
-    let name = truncate(&escape_cell(ticket.get("name").and_then(Value::as_str).unwrap_or("")), 80);
-    let status = lookup(&labels.ticket_status, ticket.get("status").and_then(Value::as_i64), labels.unknown).to_string();
-    let priority = lookup(&labels.ticket_priority, ticket.get("priority").and_then(Value::as_i64), labels.unknown_f).to_string();
-    let ticket_type = lookup(&labels.ticket_type, ticket.get("type").and_then(Value::as_i64), labels.unknown).to_string();
-    let opened = ticket.get("date").and_then(Value::as_str).unwrap_or("").to_string();
-    let snippet = cell(ticket.get("content").and_then(Value::as_str).unwrap_or(""), 100);
+    let name = truncate(
+        &escape_cell(ticket.get("name").and_then(Value::as_str).unwrap_or("")),
+        80,
+    );
+    let status = lookup(
+        &labels.ticket_status,
+        ticket.get("status").and_then(Value::as_i64),
+        labels.unknown,
+    )
+    .to_string();
+    let priority = lookup(
+        &labels.ticket_priority,
+        ticket.get("priority").and_then(Value::as_i64),
+        labels.unknown_f,
+    )
+    .to_string();
+    let ticket_type = lookup(
+        &labels.ticket_type,
+        ticket.get("type").and_then(Value::as_i64),
+        labels.unknown,
+    )
+    .to_string();
+    let opened = ticket
+        .get("date")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let snippet = cell(
+        ticket.get("content").and_then(Value::as_str).unwrap_or(""),
+        100,
+    );
     vec![id, name, status, priority, ticket_type, opened, snippet]
 }
 
@@ -27,23 +54,79 @@ fn render_ticket_list(items: &[Value], labels: &Labels) -> String {
     format!(
         "**{} ticket(s)**\n\n{}",
         items.len(),
-        table(&["ID", "Title", "Status", "Priority", "Type", "Opened", "Description"], &rows)
+        table(
+            &[
+                "ID",
+                "Title",
+                "Status",
+                "Priority",
+                "Type",
+                "Opened",
+                "Description"
+            ],
+            &rows
+        )
     )
 }
 
 fn render_ticket_detail(ticket: &Value, labels: &Labels) -> String {
     let id = id_field(ticket, "id");
-    let name = ticket.get("name").and_then(Value::as_str).unwrap_or("").to_string();
-    let status = lookup(&labels.ticket_status, ticket.get("status").and_then(Value::as_i64), labels.unknown).to_string();
-    let ticket_type = lookup(&labels.ticket_type, ticket.get("type").and_then(Value::as_i64), labels.unknown).to_string();
-    let priority = lookup(&labels.ticket_priority, ticket.get("priority").and_then(Value::as_i64), labels.unknown_f).to_string();
-    let urgency = lookup(&labels.ticket_priority, ticket.get("urgency").and_then(Value::as_i64), labels.unknown_f).to_string();
-    let impact = lookup(&labels.ticket_priority, ticket.get("impact").and_then(Value::as_i64), labels.unknown).to_string();
+    let name = ticket
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let status = lookup(
+        &labels.ticket_status,
+        ticket.get("status").and_then(Value::as_i64),
+        labels.unknown,
+    )
+    .to_string();
+    let ticket_type = lookup(
+        &labels.ticket_type,
+        ticket.get("type").and_then(Value::as_i64),
+        labels.unknown,
+    )
+    .to_string();
+    let priority = lookup(
+        &labels.ticket_priority,
+        ticket.get("priority").and_then(Value::as_i64),
+        labels.unknown_f,
+    )
+    .to_string();
+    let urgency = lookup(
+        &labels.ticket_priority,
+        ticket.get("urgency").and_then(Value::as_i64),
+        labels.unknown_f,
+    )
+    .to_string();
+    let impact = lookup(
+        &labels.ticket_priority,
+        ticket.get("impact").and_then(Value::as_i64),
+        labels.unknown,
+    )
+    .to_string();
     let category_id = id_field(ticket, "itilcategories_id");
-    let opened = ticket.get("date").and_then(Value::as_str).unwrap_or("").to_string();
-    let deadline = ticket.get("time_to_resolve").and_then(Value::as_str).unwrap_or("").to_string();
-    let solved = ticket.get("solvedate").and_then(Value::as_str).unwrap_or("").to_string();
-    let closed = ticket.get("closedate").and_then(Value::as_str).unwrap_or("").to_string();
+    let opened = ticket
+        .get("date")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let deadline = ticket
+        .get("time_to_resolve")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let solved = ticket
+        .get("solvedate")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let closed = ticket
+        .get("closedate")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
 
     let fields = field_table(&[
         ("ID", id.clone()),
@@ -83,8 +166,10 @@ fn render_search_results(result: &Value) -> String {
         return "No results.".to_string();
     }
 
-    let present: Vec<&(&str, &str)> =
-        SEARCH_FIELD_LABELS.iter().filter(|(key, _)| data.iter().any(|row| row.get(*key).is_some())).collect();
+    let present: Vec<&(&str, &str)> = SEARCH_FIELD_LABELS
+        .iter()
+        .filter(|(key, _)| data.iter().any(|row| row.get(*key).is_some()))
+        .collect();
     let headers: Vec<&str> = present.iter().map(|(_, label)| *label).collect();
     let rows: Vec<Vec<String>> = data
         .iter()
@@ -103,8 +188,15 @@ fn render_search_results(result: &Value) -> String {
         })
         .collect();
 
-    let total = result.get("totalcount").and_then(Value::as_i64).unwrap_or(data.len() as i64);
-    format!("**{} result(s)** (total: {total})\n\n{}", data.len(), table(&headers, &rows))
+    let total = result
+        .get("totalcount")
+        .and_then(Value::as_i64)
+        .unwrap_or(data.len() as i64);
+    format!(
+        "**{} result(s)** (total: {total})\n\n{}",
+        data.len(),
+        table(&headers, &rows)
+    )
 }
 
 fn default_range_limit() -> i64 {
@@ -113,7 +205,9 @@ fn default_range_limit() -> i64 {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListTicketsParams {
-    #[schemars(description = "1=New 2=In progress (assigned) 3=In progress (planned) 4=Pending 5=Solved 6=Closed")]
+    #[schemars(
+        description = "1=New 2=In progress (assigned) 3=In progress (planned) 4=Pending 5=Solved 6=Closed"
+    )]
     pub status: Option<i64>,
     #[schemars(description = "1=Incident 2=Service request")]
     pub ticket_type: Option<i64>,
@@ -131,7 +225,9 @@ pub struct GetTicketParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SearchTicketsParams {
     pub keywords: Option<String>,
-    #[schemars(description = "1=New 2=In progress (assigned) 3=In progress (planned) 4=Pending 5=Solved 6=Closed")]
+    #[schemars(
+        description = "1=New 2=In progress (assigned) 3=In progress (planned) 4=Pending 5=Solved 6=Closed"
+    )]
     pub status: Option<i64>,
     #[schemars(description = "1=Incident 2=Service request")]
     pub ticket_type: Option<i64>,
@@ -217,7 +313,10 @@ impl GlpiServer {
             Returns a compact Markdown table (id, title, status, priority, type, opened date, \
             description snippet); call get_ticket for full details on one ticket"
     )]
-    pub async fn list_tickets(&self, Parameters(params): Parameters<ListTicketsParams>) -> Result<String, String> {
+    pub async fn list_tickets(
+        &self,
+        Parameters(params): Parameters<ListTicketsParams>,
+    ) -> Result<String, String> {
         let range = format!(
             "{}-{}",
             params.range_start,
@@ -231,7 +330,11 @@ impl GlpiServer {
             query.push(("searchText[type]".to_string(), ticket_type.to_string()));
         }
 
-        let result = self.client.get("/Ticket", Some(&query)).await.map_err(|e| e.to_string())?;
+        let result = self
+            .client
+            .get("/Ticket", Some(&query))
+            .await
+            .map_err(|e| e.to_string())?;
         let items = into_array(result);
         Ok(render_ticket_list(&items, &self.labels))
     }
@@ -239,7 +342,10 @@ impl GlpiServer {
     #[rmcp::tool(
         description = "Get full details of a ticket as Markdown: field table plus the description with HTML stripped"
     )]
-    pub async fn get_ticket(&self, Parameters(params): Parameters<GetTicketParams>) -> Result<String, String> {
+    pub async fn get_ticket(
+        &self,
+        Parameters(params): Parameters<GetTicketParams>,
+    ) -> Result<String, String> {
         let ticket = self
             .client
             .get(&format!("/Ticket/{}", params.ticket_id), None)
@@ -252,7 +358,10 @@ impl GlpiServer {
         description = "Advanced ticket search via GLPI's /search/Ticket, all filters optional and \
             combinable. Returns a compact Markdown table"
     )]
-    pub async fn search_tickets(&self, Parameters(params): Parameters<SearchTicketsParams>) -> Result<String, String> {
+    pub async fn search_tickets(
+        &self,
+        Parameters(params): Parameters<SearchTicketsParams>,
+    ) -> Result<String, String> {
         let range = format!(
             "{}-{}",
             params.range_start,
@@ -261,12 +370,16 @@ impl GlpiServer {
         let mut query: Vec<(String, String)> = vec![("range".to_string(), range)];
         let mut idx = 0;
 
-        let mut push_criterion = |query: &mut Vec<(String, String)>, field: &str, searchtype: &str, value: String| {
-            query.push((format!("criteria[{idx}][field]"), field.to_string()));
-            query.push((format!("criteria[{idx}][searchtype]"), searchtype.to_string()));
-            query.push((format!("criteria[{idx}][value]"), value));
-            idx += 1;
-        };
+        let mut push_criterion =
+            |query: &mut Vec<(String, String)>, field: &str, searchtype: &str, value: String| {
+                query.push((format!("criteria[{idx}][field]"), field.to_string()));
+                query.push((
+                    format!("criteria[{idx}][searchtype]"),
+                    searchtype.to_string(),
+                ));
+                query.push((format!("criteria[{idx}][value]"), value));
+                idx += 1;
+            };
 
         if let Some(keywords) = &params.keywords {
             push_criterion(&mut query, "1", "contains", keywords.clone());
@@ -388,7 +501,10 @@ impl GlpiServer {
                     .map(|mut link| {
                         if let Some(obj) = link.as_object_mut() {
                             let link_type = obj.get("link").and_then(Value::as_i64);
-                            obj.insert("_link_label".into(), json!(self.labels.ticket_link_label(link_type)));
+                            obj.insert(
+                                "_link_label".into(),
+                                json!(self.labels.ticket_link_label(link_type)),
+                            );
                         }
                         link
                     })
@@ -411,7 +527,15 @@ impl GlpiServer {
         let mut errors = Vec::new();
 
         for source_id in params.source_ticket_ids {
-            match self.merge_one_ticket(params.target_ticket_id, source_id, params.add_followups, params.close_source).await {
+            match self
+                .merge_one_ticket(
+                    params.target_ticket_id,
+                    source_id,
+                    params.add_followups,
+                    params.close_source,
+                )
+                .await
+            {
                 Ok(entry) => merged.push(entry),
                 Err(err) => errors.push(json!({ "source_ticket_id": source_id, "error": err })),
             }
@@ -451,7 +575,10 @@ impl GlpiServer {
                 .map_err(|e| e.to_string())?;
             if let Value::Array(items) = followups {
                 for followup in items {
-                    let content = followup.get("content").and_then(Value::as_str).unwrap_or_default();
+                    let content = followup
+                        .get("content")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
                     let is_private = followup.get("is_private").cloned().unwrap_or(json!(0));
                     self.client
                         .post(
@@ -485,7 +612,10 @@ impl GlpiServer {
                 .await
                 .map_err(|e| e.to_string())?;
             self.client
-                .put(&format!("/Ticket/{source_id}"), &json!({ "input": { "status": 6 } }))
+                .put(
+                    &format!("/Ticket/{source_id}"),
+                    &json!({ "input": { "status": 6 } }),
+                )
                 .await
                 .map_err(|e| e.to_string())?;
             closed = true;

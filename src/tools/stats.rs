@@ -53,8 +53,14 @@ fn field_i64(row: &Value, id: &str) -> Option<i64> {
 fn render_counts(total_label: &str, total: usize, counts: HashMap<&str, i64>) -> String {
     let mut rows: Vec<(&str, i64)> = counts.into_iter().collect();
     rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-    let table_rows: Vec<Vec<String>> = rows.into_iter().map(|(label, count)| vec![escape_cell(label), count.to_string()]).collect();
-    format!("**{total_label}: {total}**\n\n{}", table(&["Label", "Count"], &table_rows))
+    let table_rows: Vec<Vec<String>> = rows
+        .into_iter()
+        .map(|(label, count)| vec![escape_cell(label), count.to_string()])
+        .collect();
+    format!(
+        "**{total_label}: {total}**\n\n{}",
+        table(&["Label", "Count"], &table_rows)
+    )
 }
 
 impl GlpiServer {
@@ -75,7 +81,11 @@ impl GlpiServer {
                 query.push((format!("forcedisplay[{idx}]"), field.to_string()));
             }
 
-            let mut result = self.client.get("/search/Ticket", Some(&query)).await.map_err(|e| e.to_string())?;
+            let mut result = self
+                .client
+                .get("/search/Ticket", Some(&query))
+                .await
+                .map_err(|e| e.to_string())?;
             let data = match result.get_mut("data").map(Value::take) {
                 Some(Value::Array(items)) => items,
                 _ => Vec::new(),
@@ -97,7 +107,12 @@ impl GlpiServer {
     #[rmcp::tool(description = "Ticket count grouped by status, as a Markdown table")]
     pub async fn stats_by_status(&self) -> Result<String, String> {
         let rows = self.fetch_ticket_rows(&[F_STATUS]).await?;
-        let mut counts: HashMap<&str, i64> = self.labels.ticket_status.values().map(|&l| (l, 0)).collect();
+        let mut counts: HashMap<&str, i64> = self
+            .labels
+            .ticket_status
+            .values()
+            .map(|&l| (l, 0))
+            .collect();
         for row in &rows {
             let status = field_i64(row, F_STATUS);
             let label = lookup(&self.labels.ticket_status, status, self.labels.unknown);
@@ -106,10 +121,13 @@ impl GlpiServer {
         Ok(render_counts("Total tickets", rows.len(), counts))
     }
 
-    #[rmcp::tool(description = "Ticket count grouped by type (Incident / Service request), as a Markdown table")]
+    #[rmcp::tool(
+        description = "Ticket count grouped by type (Incident / Service request), as a Markdown table"
+    )]
     pub async fn stats_by_type(&self) -> Result<String, String> {
         let rows = self.fetch_ticket_rows(&[F_TYPE]).await?;
-        let mut counts: HashMap<&str, i64> = self.labels.ticket_type.values().map(|&l| (l, 0)).collect();
+        let mut counts: HashMap<&str, i64> =
+            self.labels.ticket_type.values().map(|&l| (l, 0)).collect();
         for row in &rows {
             let ticket_type = field_i64(row, F_TYPE);
             let label = lookup(&self.labels.ticket_type, ticket_type, self.labels.unknown);
@@ -118,16 +136,34 @@ impl GlpiServer {
         Ok(render_counts("Total tickets", rows.len(), counts))
     }
 
-    #[rmcp::tool(description = "Open (non-solved/closed) ticket count grouped by priority, as a Markdown table")]
+    #[rmcp::tool(
+        description = "Open (non-solved/closed) ticket count grouped by priority, as a Markdown table"
+    )]
     pub async fn stats_by_priority(&self) -> Result<String, String> {
         let rows = self.fetch_ticket_rows(&[F_STATUS, F_PRIORITY]).await?;
-        let open_rows: Vec<&Value> =
-            rows.iter().filter(|r| !matches!(field_i64(r, F_STATUS), Some(STATUS_SOLVED) | Some(STATUS_CLOSED))).collect();
+        let open_rows: Vec<&Value> = rows
+            .iter()
+            .filter(|r| {
+                !matches!(
+                    field_i64(r, F_STATUS),
+                    Some(STATUS_SOLVED) | Some(STATUS_CLOSED)
+                )
+            })
+            .collect();
 
-        let mut counts: HashMap<&str, i64> = self.labels.ticket_priority.values().map(|&l| (l, 0)).collect();
+        let mut counts: HashMap<&str, i64> = self
+            .labels
+            .ticket_priority
+            .values()
+            .map(|&l| (l, 0))
+            .collect();
         for row in &open_rows {
             let priority = field_i64(row, F_PRIORITY);
-            let label = lookup(&self.labels.ticket_priority, priority, self.labels.unknown_f);
+            let label = lookup(
+                &self.labels.ticket_priority,
+                priority,
+                self.labels.unknown_f,
+            );
             *counts.entry(label).or_insert(0) += 1;
         }
         Ok(render_counts("Total open tickets", open_rows.len(), counts))
@@ -138,7 +174,10 @@ impl GlpiServer {
         let rows = self.fetch_ticket_rows(&[F_CATEGORY]).await?;
         let mut counts: HashMap<&str, i64> = HashMap::new();
         for row in &rows {
-            let label = field(row, F_CATEGORY).map(str::trim).filter(|s| !s.is_empty()).unwrap_or(self.labels.uncategorized);
+            let label = field(row, F_CATEGORY)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(self.labels.uncategorized);
             *counts.entry(label).or_insert(0) += 1;
         }
         Ok(render_counts("Total tickets", rows.len(), counts))
@@ -166,9 +205,18 @@ impl GlpiServer {
 
     #[rmcp::tool(description = "Average resolution time (hours/days) of solved or closed tickets")]
     pub async fn stats_resolution_time(&self) -> Result<String, String> {
-        let rows = self.fetch_ticket_rows(&[F_STATUS, F_OPENED, F_SOLVED]).await?;
-        let resolved: Vec<&Value> =
-            rows.iter().filter(|r| matches!(field_i64(r, F_STATUS), Some(STATUS_SOLVED) | Some(STATUS_CLOSED))).collect();
+        let rows = self
+            .fetch_ticket_rows(&[F_STATUS, F_OPENED, F_SOLVED])
+            .await?;
+        let resolved: Vec<&Value> = rows
+            .iter()
+            .filter(|r| {
+                matches!(
+                    field_i64(r, F_STATUS),
+                    Some(STATUS_SOLVED) | Some(STATUS_CLOSED)
+                )
+            })
+            .collect();
 
         let deltas: Vec<f64> = resolved
             .iter()
@@ -199,11 +247,20 @@ impl GlpiServer {
         description = "Open tickets past their time_to_resolve deadline, sorted by hours overdue, as a Markdown table"
     )]
     pub async fn stats_overdue(&self) -> Result<String, String> {
-        let rows = self.fetch_ticket_rows(&[F_ID, F_NAME, F_DEADLINE, F_STATUS, F_PRIORITY]).await?;
+        let rows = self
+            .fetch_ticket_rows(&[F_ID, F_NAME, F_DEADLINE, F_STATUS, F_PRIORITY])
+            .await?;
         let now = chrono::Local::now().naive_local();
 
-        let open_rows: Vec<&Value> =
-            rows.iter().filter(|r| !matches!(field_i64(r, F_STATUS), Some(STATUS_SOLVED) | Some(STATUS_CLOSED))).collect();
+        let open_rows: Vec<&Value> = rows
+            .iter()
+            .filter(|r| {
+                !matches!(
+                    field_i64(r, F_STATUS),
+                    Some(STATUS_SOLVED) | Some(STATUS_CLOSED)
+                )
+            })
+            .collect();
 
         struct Overdue<'a> {
             id: &'a str,
@@ -222,7 +279,8 @@ impl GlpiServer {
                 if deadline >= now {
                     return None;
                 }
-                let overdue_hours = ((now - deadline).num_seconds() as f64 / 3600.0 * 10.0).round() / 10.0;
+                let overdue_hours =
+                    ((now - deadline).num_seconds() as f64 / 3600.0 * 10.0).round() / 10.0;
                 let status = field_i64(row, F_STATUS);
                 let priority = field_i64(row, F_PRIORITY);
                 Some(Overdue {
@@ -231,7 +289,11 @@ impl GlpiServer {
                     deadline: deadline_str,
                     overdue_hours,
                     status_label: lookup(&self.labels.ticket_status, status, self.labels.unknown),
-                    priority_label: lookup(&self.labels.ticket_priority, priority, self.labels.unknown_f),
+                    priority_label: lookup(
+                        &self.labels.ticket_priority,
+                        priority,
+                        self.labels.unknown_f,
+                    ),
                 })
             })
             .collect();
@@ -239,7 +301,10 @@ impl GlpiServer {
         overdue.sort_by(|a, b| b.overdue_hours.total_cmp(&a.overdue_hours));
 
         if overdue.is_empty() {
-            return Ok(format!("**Total open tickets: {}**\n\nNo overdue tickets.", open_rows.len()));
+            return Ok(format!(
+                "**Total open tickets: {}**\n\nNo overdue tickets.",
+                open_rows.len()
+            ));
         }
 
         let rows: Vec<Vec<String>> = overdue
@@ -260,7 +325,10 @@ impl GlpiServer {
             "**Total open: {}, overdue: {}**\n\n{}",
             open_rows.len(),
             overdue.len(),
-            table(&["ID", "Name", "Deadline", "Overdue", "Status", "Priority"], &rows)
+            table(
+                &["ID", "Name", "Deadline", "Overdue", "Status", "Priority"],
+                &rows
+            )
         ))
     }
 }

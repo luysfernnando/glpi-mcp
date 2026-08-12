@@ -11,7 +11,12 @@ impl GLPIClient {
     /// Resolves a search-option field ID by stable column name, falling back to
     /// `default` (the legacy GLPI 10 numbering) when discovery fails or the
     /// column is unknown — callers never need to special-case discovery errors.
-    pub async fn resolve_search_field_id(&self, itemtype: &str, column: &str, default: &str) -> String {
+    pub async fn resolve_search_field_id(
+        &self,
+        itemtype: &str,
+        column: &str,
+        default: &str,
+    ) -> String {
         self.discover_search_options(itemtype)
             .await
             .get(&column.to_lowercase())
@@ -24,7 +29,10 @@ impl GLPIClient {
             return cached.clone();
         }
 
-        let mapping = self.fetch_search_options(itemtype).await.unwrap_or_default();
+        let mapping = self
+            .fetch_search_options(itemtype)
+            .await
+            .unwrap_or_default();
         self.search_options
             .write()
             .await

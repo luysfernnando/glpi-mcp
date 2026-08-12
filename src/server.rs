@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{ServerCapabilities, ServerInfo};
-use rmcp::{tool_handler, ServerHandler};
+use rmcp::{ServerHandler, tool_handler};
 
 use crate::client::GLPIClient;
 use crate::labels::Labels;

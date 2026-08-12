@@ -38,9 +38,7 @@ impl GlpiConfig {
     pub fn from_env() -> Result<Self, GlpiError> {
         let _ = dotenvy::dotenv();
 
-        let base_url = require_env("GLPI_URL")?
-            .trim_end_matches('/')
-            .to_string();
+        let base_url = require_env("GLPI_URL")?.trim_end_matches('/').to_string();
         let app_token = require_env("GLPI_APP_TOKEN")?.into();
         let user_token = require_env("GLPI_USER_TOKEN")?.into();
 

@@ -8,6 +8,10 @@ use crate::server::GlpiServer;
 impl GlpiServer {
     #[rmcp::tool(description = "Close the active GLPI session")]
     pub async fn kill_session(&self) -> Result<Json<Value>, String> {
-        self.client.kill_session().await.map(Json).map_err(|e| e.to_string())
+        self.client
+            .kill_session()
+            .await
+            .map(Json)
+            .map_err(|e| e.to_string())
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::config::Language;
 
@@ -108,8 +108,14 @@ fn map<const N: usize>(pairs: [(i64, &'static str); N]) -> HashMap<i64, &'static
     HashMap::from(pairs)
 }
 
-pub(crate) fn lookup<'a>(table: &'a HashMap<i64, &'static str>, value: Option<i64>, fallback: &'a str) -> &'a str {
-    value.and_then(|v| table.get(&v).copied()).unwrap_or(fallback)
+pub(crate) fn lookup<'a>(
+    table: &'a HashMap<i64, &'static str>,
+    value: Option<i64>,
+    fallback: &'a str,
+) -> &'a str {
+    value
+        .and_then(|v| table.get(&v).copied())
+        .unwrap_or(fallback)
 }
 
 impl Labels {
@@ -117,15 +123,23 @@ impl Labels {
     /// fields to a ticket JSON object, mirroring the Python original's `_enrich_ticket`.
     pub fn enrich_ticket(&self, mut ticket: Value) -> Value {
         if let Some(obj) = ticket.as_object_mut() {
-            let field = |obj: &serde_json::Map<String, Value>, key: &str| obj.get(key).and_then(Value::as_i64);
+            let field = |obj: &serde_json::Map<String, Value>, key: &str| {
+                obj.get(key).and_then(Value::as_i64)
+            };
             let status = field(obj, "status");
             let ticket_type = field(obj, "type");
             let priority = field(obj, "priority");
             let urgency = field(obj, "urgency");
             let impact = field(obj, "impact");
 
-            obj.insert("_status_label".into(), json!(lookup(&self.ticket_status, status, self.unknown)));
-            obj.insert("_type_label".into(), json!(lookup(&self.ticket_type, ticket_type, self.unknown)));
+            obj.insert(
+                "_status_label".into(),
+                json!(lookup(&self.ticket_status, status, self.unknown)),
+            );
+            obj.insert(
+                "_type_label".into(),
+                json!(lookup(&self.ticket_type, ticket_type, self.unknown)),
+            );
             obj.insert(
                 "_priority_label".into(),
                 json!(lookup(&self.ticket_priority, priority, self.unknown_f)),
@@ -134,7 +148,10 @@ impl Labels {
                 "_urgency_label".into(),
                 json!(lookup(&self.ticket_priority, urgency, self.unknown_f)),
             );
-            obj.insert("_impact_label".into(), json!(lookup(&self.ticket_priority, impact, self.unknown)));
+            obj.insert(
+                "_impact_label".into(),
+                json!(lookup(&self.ticket_priority, impact, self.unknown)),
+            );
         }
         ticket
     }
@@ -163,7 +180,8 @@ mod tests {
     #[test]
     fn enrich_ticket_adds_readable_labels() {
         let labels = Labels::for_language(Language::En);
-        let ticket = json!({ "id": 1, "status": 2, "type": 1, "priority": 4, "urgency": 3, "impact": 1 });
+        let ticket =
+            json!({ "id": 1, "status": 2, "type": 1, "priority": 4, "urgency": 3, "impact": 1 });
         let enriched = labels.enrich_ticket(ticket);
         assert_eq!(enriched["_status_label"], "In progress (assigned)");
         assert_eq!(enriched["_type_label"], "Incident");

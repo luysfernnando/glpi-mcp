@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use reqwest::{Method, StatusCode};
 use secrecy::ExposeSecret;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::RwLock;
 
 use crate::config::GlpiConfig;
@@ -47,7 +47,11 @@ impl GLPIClient {
         })
     }
 
-    pub async fn get(&self, endpoint: &str, query: Option<&[(String, String)]>) -> Result<Value, GlpiError> {
+    pub async fn get(
+        &self,
+        endpoint: &str,
+        query: Option<&[(String, String)]>,
+    ) -> Result<Value, GlpiError> {
         self.request(Method::GET, endpoint, query, None).await
     }
 
@@ -89,7 +93,9 @@ impl GLPIClient {
         );
 
         let token = self.ensure_session().await?;
-        let (status, text) = self.send_once(method.clone(), &url, query, body, &token).await?;
+        let (status, text) = self
+            .send_once(method.clone(), &url, query, body, &token)
+            .await?;
         let outcome = classify(status, &text);
 
         let outcome = if status == StatusCode::UNAUTHORIZED

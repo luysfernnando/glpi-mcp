@@ -2,7 +2,7 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::markdown::{id_field, into_array, strip_html};
 use crate::server::GlpiServer;
@@ -29,8 +29,22 @@ pub struct GetFollowupParams {
 fn render_followup(followup: &Value) -> String {
     let id = id_field(followup, "id");
     let date = followup.get("date").and_then(Value::as_str).unwrap_or("");
-    let privacy = if followup.get("is_private").and_then(Value::as_i64).unwrap_or(0) == 1 { " (private)" } else { "" };
-    let content = strip_html(followup.get("content").and_then(Value::as_str).unwrap_or(""));
+    let privacy = if followup
+        .get("is_private")
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        == 1
+    {
+        " (private)"
+    } else {
+        ""
+    };
+    let content = strip_html(
+        followup
+            .get("content")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    );
     format!("**#{id} — {date}{privacy}**\n\n{content}")
 }
 
@@ -39,13 +53,20 @@ fn render_followups_list(items: &[Value]) -> String {
         return "No followups.".to_string();
     }
     let blocks: Vec<String> = items.iter().map(render_followup).collect();
-    format!("**{} followup(s)**\n\n{}", items.len(), blocks.join("\n\n---\n\n"))
+    format!(
+        "**{} followup(s)**\n\n{}",
+        items.len(),
+        blocks.join("\n\n---\n\n")
+    )
 }
 
 #[tool_router(router = followups_tool_router, vis = "pub")]
 impl GlpiServer {
     #[rmcp::tool(description = "List all followups of a ticket as Markdown, HTML stripped")]
-    pub async fn list_followups(&self, Parameters(params): Parameters<ListFollowupsParams>) -> Result<String, String> {
+    pub async fn list_followups(
+        &self,
+        Parameters(params): Parameters<ListFollowupsParams>,
+    ) -> Result<String, String> {
         let result = self
             .client
             .get(&format!("/Ticket/{}/ITILFollowup", params.ticket_id), None)
@@ -55,7 +76,10 @@ impl GlpiServer {
     }
 
     #[rmcp::tool(description = "Add a followup to a ticket")]
-    pub async fn add_followup(&self, Parameters(params): Parameters<AddFollowupParams>) -> Result<String, String> {
+    pub async fn add_followup(
+        &self,
+        Parameters(params): Parameters<AddFollowupParams>,
+    ) -> Result<String, String> {
         let result = self
             .client
             .post(
@@ -70,11 +94,17 @@ impl GlpiServer {
             .await
             .map_err(|e| e.to_string())?;
         let id = id_field(&result, "id");
-        Ok(format!("Followup #{id} added to ticket #{}.", params.ticket_id))
+        Ok(format!(
+            "Followup #{id} added to ticket #{}.",
+            params.ticket_id
+        ))
     }
 
     #[rmcp::tool(description = "Get details of a specific followup as Markdown, HTML stripped")]
-    pub async fn get_followup(&self, Parameters(params): Parameters<GetFollowupParams>) -> Result<String, String> {
+    pub async fn get_followup(
+        &self,
+        Parameters(params): Parameters<GetFollowupParams>,
+    ) -> Result<String, String> {
         let result = self
             .client
             .get(&format!("/ITILFollowup/{}", params.followup_id), None)
