@@ -192,6 +192,8 @@ GLPI_MCP_HTTP_TOKEN=some-long-random-token \
 
 MCP endpoint is served at `http://<bind-addr>/mcp` (streamable HTTP). `GLPI_MCP_HTTP_TOKEN` is optional but strongly recommended outside a fully trusted network — when set, requests must send `Authorization: Bearer <token>`.
 
+The server only accepts loopback `Host` headers by default. Behind a reverse proxy on a real hostname, set `GLPI_MCP_ALLOWED_HOSTS` to a comma separated list (e.g. `GLPI_MCP_ALLOWED_HOSTS=mcp.example.com,mcp.example.com:443`), matching whatever `Host` your proxy forwards.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

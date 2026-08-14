@@ -40,11 +40,19 @@ async fn serve_http(server: GlpiServer) -> anyhow::Result<()> {
         std::env::var("GLPI_MCP_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8000".to_string());
     let auth_token = std::env::var("GLPI_MCP_HTTP_TOKEN").ok();
 
+    // rmcp only accepts loopback Host headers by default (DNS-rebinding protection). Behind
+    // a reverse proxy on a real hostname, that must be widened explicitly.
+    let mut config = StreamableHttpServerConfig::default();
+    if let Ok(hosts) = std::env::var("GLPI_MCP_ALLOWED_HOSTS") {
+        let hosts: Vec<String> = hosts.split(',').map(|h| h.trim().to_string()).collect();
+        config = config.with_allowed_hosts(hosts);
+    }
+
     let ct = tokio_util::sync::CancellationToken::new();
     let service = StreamableHttpService::new(
         move || Ok(server.clone()),
         LocalSessionManager::default().into(),
-        StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token()),
+        config.with_cancellation_token(ct.child_token()),
     );
 
     let mut router = axum::Router::new().nest_service("/mcp", service);
