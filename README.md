@@ -6,7 +6,7 @@
 
 **A high performance, token efficient [Model Context Protocol](https://modelcontextprotocol.io) server for [GLPI](https://glpi-project.org/)**, rewritten in Rust from the ground up for Claude Code and any MCP compatible client. Every response is built around spending as few tokens as possible, so your context window lasts for a whole conversation instead of one ticket lookup.
 
-**43 tools** covering tickets, followups, tasks, solutions, statistics, the knowledge base, users and groups.
+**46 tools** covering tickets, followups, tasks, solutions, statistics, the knowledge base, users and groups, and ticket routing rules.
 
 <p align="left">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-2024_Edition-DE4A26?style=for-the-badge&logo=rust&logoColor=white">
@@ -140,9 +140,15 @@ Restart Claude Code (or run `claude mcp list` to confirm `glpi` is connected), t
 
 * `get_users` — list GLPI users
 * `get_groups` — list GLPI groups
+* `find_group` — find groups by name/acronym, shows ID and full hierarchy path
 * `create_group` — create a new GLPI group
 * `update_group` — update an existing group
 * `delete_group` — delete a group
+
+### 📐 Ticket routing rules
+
+* `find_group_rule_references` — scan RuleTicket rules for criteria/actions referencing a group, e.g. before deactivating it
+* `update_rule_action` — update a rule action's value, e.g. redirect routing to a different group
 
 ### 📋 Reference data
 

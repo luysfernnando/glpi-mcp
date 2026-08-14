@@ -2,7 +2,7 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use crate::markdown::{escape_cell, id_field, into_array, table};
 use crate::server::GlpiServer;
@@ -49,12 +49,18 @@ pub struct UpdateGroupParams {
     #[schemars(
         description = "Fields to change, e.g. name, comment, groups_id (parent), is_assign, ..."
     )]
-    pub update_fields: Value,
+    pub update_fields: Map<String, Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DeleteGroupParams {
     pub group_id: i64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FindGroupParams {
+    #[schemars(description = "Name or acronym to search for (case-insensitive, partial match)")]
+    pub name: String,
 }
 
 #[tool_router(router = users_groups_tool_router, vis = "pub")]
@@ -132,6 +138,51 @@ impl GlpiServer {
         ))
     }
 
+    #[rmcp::tool(
+        description = "Find GLPI groups by name or acronym (partial match); returns ID, full \
+            hierarchy path and comment. Use this to resolve a parent group's ID before create_group, \
+            or a group's own ID before update_group / delete_group / find_group_rule_references"
+    )]
+    pub async fn find_group(
+        &self,
+        Parameters(params): Parameters<FindGroupParams>,
+    ) -> Result<String, String> {
+        let query = vec![
+            ("criteria[0][field]".to_string(), "14".to_string()),
+            ("criteria[0][searchtype]".to_string(), "contains".to_string()),
+            ("criteria[0][value]".to_string(), params.name),
+            ("forcedisplay[0]".to_string(), "2".to_string()),
+            ("forcedisplay[1]".to_string(), "1".to_string()),
+            ("forcedisplay[2]".to_string(), "16".to_string()),
+        ];
+        let result = self
+            .client
+            .get("/search/Group", Some(&query))
+            .await
+            .map_err(|e| e.to_string())?;
+        let data = into_array(result.get("data").cloned().unwrap_or(Value::Null));
+        if data.is_empty() {
+            return Ok("No matching groups.".to_string());
+        }
+
+        let rows: Vec<Vec<String>> = data
+            .iter()
+            .map(|row| {
+                vec![
+                    id_field(row, "2"),
+                    escape_cell(row.get("1").and_then(Value::as_str).unwrap_or("")),
+                    escape_cell(row.get("16").and_then(Value::as_str).unwrap_or("")),
+                ]
+            })
+            .collect();
+
+        Ok(format!(
+            "**{} group(s) found**\n\n{}",
+            rows.len(),
+            table(&["ID", "Path", "Comment"], &rows)
+        ))
+    }
+
     #[rmcp::tool(description = "Create a new GLPI group")]
     pub async fn create_group(
         &self,
@@ -172,10 +223,25 @@ impl GlpiServer {
         &self,
         Parameters(params): Parameters<UpdateGroupParams>,
     ) -> Result<String, String> {
+        let mut input = params.update_fields;
+        // GLPI's Group API resets groups_id (the parent) to 0 when `name` is sent without it,
+        // silently detaching the group from its hierarchy. Preserve the current parent whenever
+        // a rename doesn't explicitly touch groups_id.
+        if input.contains_key("name") && !input.contains_key("groups_id") {
+            let current = self
+                .client
+                .get(&format!("/Group/{}", params.group_id), None)
+                .await
+                .map_err(|e| e.to_string())?;
+            if let Some(groups_id) = current.get("groups_id") {
+                input.insert("groups_id".into(), groups_id.clone());
+            }
+        }
+
         self.client
             .put(
                 &format!("/Group/{}", params.group_id),
-                &json!({ "input": params.update_fields }),
+                &json!({ "input": input }),
             )
             .await
             .map_err(|e| e.to_string())?;

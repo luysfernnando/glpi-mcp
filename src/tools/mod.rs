@@ -1,6 +1,7 @@
 pub mod categories;
 pub mod followups;
 pub mod kb;
+pub mod rules;
 pub mod session;
 pub mod solutions;
 pub mod stats;
