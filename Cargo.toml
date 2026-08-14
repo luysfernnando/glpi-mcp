@@ -5,16 +5,18 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.104"
+axum = "0.8.9"
 chrono = "0.4.45"
 dotenvy = "0.15.7"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "http2", "json", "query"] }
-rmcp = { version = "3.1.2", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "3.1.2", features = ["server", "transport-io", "transport-streamable-http-server", "transport-streamable-http-server-session", "transport-worker", "macros"] }
 schemars = "1.2.2"
 secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.20"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "io-std", "sync"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "io-std", "sync", "net", "signal"] }
+tokio-util = { version = "0.7.19", features = ["rt"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 

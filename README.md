@@ -6,7 +6,7 @@
 
 **A high performance, token efficient [Model Context Protocol](https://modelcontextprotocol.io) server for [GLPI](https://glpi-project.org/)**, rewritten in Rust from the ground up for Claude Code and any MCP compatible client. Every response is built around spending as few tokens as possible, so your context window lasts for a whole conversation instead of one ticket lookup.
 
-**46 tools** covering tickets, followups, tasks, solutions, statistics, the knowledge base, users and groups, and ticket routing rules.
+**68 tools** covering tickets, followups, tasks, solutions, statistics, the knowledge base, users, groups, profiles, ITIL categories, and ticket routing rules.
 
 <p align="left">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-2024_Edition-DE4A26?style=for-the-badge&logo=rust&logoColor=white">
@@ -145,14 +145,52 @@ Restart Claude Code (or run `claude mcp list` to confirm `glpi` is connected), t
 * `update_group` — update an existing group
 * `delete_group` — delete a group
 
+### 🪪 Profiles
+
+* `get_profiles` — list GLPI profiles (Admin, Technician, Self-Service, ...)
+* `find_profile` — find profiles by name
+* `create_profile` — create a new profile
+* `update_profile` — update an existing profile
+* `delete_profile` — delete a profile
+* `duplicate_profile` — clone a profile and copy all its rights, like GLPI's UI "Duplicate" action
+
 ### 📐 Ticket routing rules
 
+* `find_rules` — find rules by name, optionally filtered by sub_type (e.g. `RuleTicket`)
 * `find_group_rule_references` — scan RuleTicket rules for criteria/actions referencing a group, e.g. before deactivating it
+* `create_rule` — create a new rule
+* `update_rule` — update an existing rule
+* `delete_rule` — delete a rule
+* `list_rule_criteria` — list a rule's criteria
+* `list_rule_actions` — list a rule's actions
+* `create_rule_criteria` — add a criterion to a rule
+* `update_rule_criteria` — update a rule criterion
+* `delete_rule_criteria` — delete a rule criterion
+* `create_rule_action` — add an action to a rule (e.g. assign a group/SLA/OLA/priority)
 * `update_rule_action` — update a rule action's value, e.g. redirect routing to a different group
+* `delete_rule_action` — delete a rule action
+* `duplicate_rule` — clone a rule with all its criteria/actions, e.g. to set up SLA routing for a newly created org unit
 
 ### 📋 Reference data
 
 * `list_itil_categories` — list available ITIL categories
+* `find_itil_category` — find ITIL categories by name
+* `create_itil_category` — create a new ITIL category
+* `update_itil_category` — update an existing ITIL category
+* `delete_itil_category` — delete an ITIL category
+
+## Running remote (optional)
+
+By default the server speaks stdio and Claude Code (or any MCP client) spawns one process per session. If you would rather run a single long-lived server and have clients connect to it over the network, set:
+
+```bash
+GLPI_MCP_TRANSPORT=http \
+GLPI_MCP_BIND_ADDR=0.0.0.0:8000 \
+GLPI_MCP_HTTP_TOKEN=some-long-random-token \
+/path/to/glpi-mcp
+```
+
+MCP endpoint is served at `http://<bind-addr>/mcp` (streamable HTTP). `GLPI_MCP_HTTP_TOKEN` is optional but strongly recommended outside a fully trusted network — when set, requests must send `Authorization: Bearer <token>`.
 
 ## License
 
