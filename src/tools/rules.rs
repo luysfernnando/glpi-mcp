@@ -118,7 +118,15 @@ impl GlpiServer {
             rows.len(),
             params.group_id,
             table(
-                &["Rule ID", "Rule name", "Active", "Kind", "Field", "Value", "Row ID"],
+                &[
+                    "Rule ID",
+                    "Rule name",
+                    "Active",
+                    "Kind",
+                    "Field",
+                    "Value",
+                    "Row ID"
+                ],
                 &rows
             )
         ))

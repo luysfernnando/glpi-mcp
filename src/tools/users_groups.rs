@@ -149,7 +149,10 @@ impl GlpiServer {
     ) -> Result<String, String> {
         let query = vec![
             ("criteria[0][field]".to_string(), "14".to_string()),
-            ("criteria[0][searchtype]".to_string(), "contains".to_string()),
+            (
+                "criteria[0][searchtype]".to_string(),
+                "contains".to_string(),
+            ),
             ("criteria[0][value]".to_string(), params.name),
             ("forcedisplay[0]".to_string(), "2".to_string()),
             ("forcedisplay[1]".to_string(), "1".to_string()),
