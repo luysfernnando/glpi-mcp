@@ -4,7 +4,7 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use crate::markdown::{
     escape_cell, field_table, id_field, into_array, str_field, strip_html, table, truncate,
@@ -59,7 +59,7 @@ pub struct UpdateKbArticleParams {
     #[schemars(
         description = "Fields to change, e.g. name, answer, is_faq, knowbaseitemcategories_id"
     )]
-    pub update_fields: Value,
+    pub update_fields: Map<String, Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -93,7 +93,7 @@ pub struct AddKbVisibilityGroupParams {
 pub struct UpdateKbVisibilityParams {
     #[schemars(description = "ID of the visibility entry, obtained via get_kb_article_visibility")]
     pub visibility_id: i64,
-    pub update_fields: Value,
+    pub update_fields: Map<String, Value>,
 }
 
 fn render_kb_list(items: &[Value]) -> String {

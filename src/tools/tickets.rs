@@ -1,8 +1,8 @@
-use rmcp::handler::server::wrapper::{Json, Parameters};
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use crate::labels::{Labels, lookup};
 use crate::markdown::{
@@ -266,7 +266,7 @@ fn default_priority() -> i64 {
 pub struct UpdateTicketParams {
     pub ticket_id: i64,
     #[schemars(description = "Fields to change, e.g. {\"status\": 5, \"priority\": 4}")]
-    pub update_fields: Value,
+    pub update_fields: Map<String, Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -409,7 +409,7 @@ impl GlpiServer {
     pub async fn create_ticket(
         &self,
         Parameters(params): Parameters<CreateTicketParams>,
-    ) -> Result<Json<Value>, String> {
+    ) -> Result<String, String> {
         let mut input = json!({
             "name": params.name,
             "content": params.content,
@@ -432,14 +432,14 @@ impl GlpiServer {
             .post("/Ticket", &json!({ "input": input }))
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Json(result))
+        Ok(result.to_string())
     }
 
     #[rmcp::tool(description = "Update a ticket; pass only the fields to change")]
     pub async fn update_ticket(
         &self,
         Parameters(params): Parameters<UpdateTicketParams>,
-    ) -> Result<Json<Value>, String> {
+    ) -> Result<String, String> {
         let result = self
             .client
             .put(
@@ -448,27 +448,27 @@ impl GlpiServer {
             )
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Json(result))
+        Ok(result.to_string())
     }
 
     #[rmcp::tool(description = "Delete a ticket by ID")]
     pub async fn delete_ticket(
         &self,
         Parameters(params): Parameters<DeleteTicketParams>,
-    ) -> Result<Json<Value>, String> {
+    ) -> Result<String, String> {
         let result = self
             .client
             .delete(&format!("/Ticket/{}", params.ticket_id))
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Json(result))
+        Ok(result.to_string())
     }
 
     #[rmcp::tool(description = "Link two tickets together")]
     pub async fn link_tickets(
         &self,
         Parameters(params): Parameters<LinkTicketsParams>,
-    ) -> Result<Json<Value>, String> {
+    ) -> Result<String, String> {
         let result = self
             .client
             .post(
@@ -481,14 +481,14 @@ impl GlpiServer {
             )
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Json(result))
+        Ok(result.to_string())
     }
 
     #[rmcp::tool(description = "List all links between a ticket and other tickets")]
     pub async fn list_ticket_links(
         &self,
         Parameters(params): Parameters<ListTicketLinksParams>,
-    ) -> Result<Json<Value>, String> {
+    ) -> Result<String, String> {
         let result = self
             .client
             .get(&format!("/Ticket/{}/Ticket_Ticket", params.ticket_id), None)
@@ -512,7 +512,7 @@ impl GlpiServer {
             ),
             other => other,
         };
-        Ok(Json(enriched))
+        Ok(enriched.to_string())
     }
 
     #[rmcp::tool(
@@ -522,7 +522,7 @@ impl GlpiServer {
     pub async fn merge_tickets(
         &self,
         Parameters(params): Parameters<MergeTicketsParams>,
-    ) -> Result<Json<Value>, String> {
+    ) -> Result<String, String> {
         let mut merged = Vec::new();
         let mut errors = Vec::new();
 
@@ -541,11 +541,12 @@ impl GlpiServer {
             }
         }
 
-        Ok(Json(json!({
+        Ok(json!({
             "target_ticket_id": params.target_ticket_id,
             "merged": merged,
             "errors": errors,
-        })))
+        })
+        .to_string())
     }
 }
 

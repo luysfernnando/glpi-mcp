@@ -2,7 +2,7 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool_router;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use crate::labels::lookup;
 use crate::markdown::{cell, id_field, into_array, table};
@@ -37,7 +37,7 @@ pub struct UpdateTaskParams {
     #[schemars(
         description = "Fields to change, e.g. state (1/2), content, actiontime, users_id_tech"
     )]
-    pub update_fields: Value,
+    pub update_fields: Map<String, Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

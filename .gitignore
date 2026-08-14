@@ -29,3 +29,6 @@ target
 .docs/
 CLAUDE.md
 AGENTS.md
+
+# GLPI MCP
+.mcp.json
