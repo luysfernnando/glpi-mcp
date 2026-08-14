@@ -32,3 +32,6 @@ AGENTS.md
 
 # GLPI MCP
 .mcp.json
+
+# Local-only convenience hooks, never committed
+.githooks/
